@@ -1,7 +1,6 @@
 ﻿#include <memory>
 #include <iostream>
 
-
 class Mass {
 public:
 	enum status {
@@ -50,12 +49,16 @@ public:
 	bool think(Board& b);
 };
 
-//三目並べの後攻定石
+//三目並べの後攻定石+優先度でマスを管理
 class AI_standard : public AI {
+private:
+	int massScore[3][3];
+
 public:
 	AI_standard() {}
 	~AI_standard() {}
 
+	void calcScore(int* turnCount, Board& b);
 	bool think(Board& b);
 };
 
@@ -226,20 +229,25 @@ bool AI_ordered::think(Board& b)
 	return false;
 }
 
-bool AI_standard::think(Board& b)
+void AI_standard::calcScore(int* turnCount, Board& b)
 {
-	int turnCount = 1;
-
-	int massScore[3][3] = { {50, 30, 50},
-							{30, 70, 30},
-							{50, 30, 50} };
+	//各マスごとの優先度
+	massScore[0][0] = 50;
+	massScore[0][1] = 30;
+	massScore[0][2] = 50;
+	massScore[1][0] = 30;
+	massScore[1][1] = 70;
+	massScore[1][2] = 30;
+	massScore[2][0] = 50;
+	massScore[2][1] = 30;
+	massScore[2][2] = 50;
 
 	for (int y = 0; y < Board::BOARD_SIZE; y++)
 	{
 		int putCountPlayerX = 0;
 		int emptyPosX = -1;
 		for (int x = 0; x < Board::BOARD_SIZE; x++)
-		{		
+		{
 			if (b.mass_[y][x].getStatus() == Mass::status::ENEMY)
 			{
 				turnCount++;
@@ -260,6 +268,11 @@ bool AI_standard::think(Board& b)
 		if (putCountPlayerX == 2)
 		{
 			massScore[y][emptyPosX] = 100;
+		}
+		else if (putCountPlayerX == 1)
+		{
+			//リーチを狙うとき角よりは優先度を下げる
+			massScore[y][emptyPosX] = 40;
 		}
 	}
 
@@ -289,49 +302,124 @@ bool AI_standard::think(Board& b)
 		{
 			massScore[emptyPosY][x] = 100;
 		}
+		else if (putCountPlayerY == 1)
+		{
+			//リーチを狙うとき角よりは優先度を下げる
+			massScore[emptyPosY][x] = 40;
+		}
+	}
+
+	int putCountPlayerCross = 0;
+	int emptyPosCross = -1;
+	for (int i = 0; i < Board::BOARD_SIZE; i++)
+	{
+		if (b.mass_[i][i].getStatus() == Mass::status::ENEMY)
+		{
+			massScore[i][i] = -1;
+			putCountPlayerCross = -100;
+		}
+		else if (b.mass_[i][i].getStatus() == Mass::status::PLAYER)
+		{
+			massScore[i][i] = -1;
+			putCountPlayerCross++;
+		}
+		else
+		{
+			emptyPosCross = i;
+		}
+	}
+
+	if (putCountPlayerCross == 2)
+	{
+		massScore[emptyPosCross][emptyPosCross] = 100;
+	}
+	else if (putCountPlayerCross == 1)
+	{
+		//リーチを狙うとき角よりは優先度を下げる
+		massScore[emptyPosCross][emptyPosCross] = 40;
+	}
+
+	putCountPlayerCross = 0;
+	emptyPosCross = -1;
+	for (int i = 0; i < Board::BOARD_SIZE; i++)
+	{
+		if (b.mass_[i][Board::BOARD_SIZE - (i + 1)].getStatus() == Mass::status::ENEMY)
+		{
+			massScore[i][Board::BOARD_SIZE - (i + 1)] = -1;
+			putCountPlayerCross = -100;
+		}
+		else if (b.mass_[i][Board::BOARD_SIZE - (i + 1)].getStatus() == Mass::status::PLAYER)
+		{
+			massScore[i][Board::BOARD_SIZE - (i + 1)] = -1;
+			putCountPlayerCross++;
+		}
+		else
+		{
+			emptyPosCross = i;
+		}
+	}
+
+	if (putCountPlayerCross == 2)
+	{
+		massScore[emptyPosCross][Board::BOARD_SIZE - (emptyPosCross + 1)] = 100;
+	}
+	else if (putCountPlayerCross == 1)
+	{
+		//リーチを狙うとき角よりは優先度を下げる
+		massScore[emptyPosCross][Board::BOARD_SIZE - (emptyPosCross + 1)] = 40;
 	}
 
 	//後攻初手の定石
-	if (turnCount == 1)
+	if (*turnCount == 1)
 	{
-		//真ん中におかれたとき角に置く
+		//真ん中におかれたとき角を最優先にする
 		if (b.mass_[Board::BOARD_SIZE / 2][Board::BOARD_SIZE / 2].getStatus() == Mass::status::PLAYER)
 		{
-			b.mass_[0][0].put(Mass::ENEMY);
+			massScore[0][0] = 100;
 		}
-		//角や辺におかれたとき真ん中に置く
-		else 
+		//角や辺におかれたとき真ん中を最優先にする
+		else
 		{
-			b.mass_[Board::BOARD_SIZE / 2][Board::BOARD_SIZE / 2].put(Mass::ENEMY);
+			massScore[Board::BOARD_SIZE / 2][Board::BOARD_SIZE / 2] = 100;
 		}
 	}
-	//二回目置くときに両角取られてて真ん中を取っていれば辺をとる
-	else if (turnCount == 2 && (
-		(b.mass_[Board::BOARD_SIZE][Board::BOARD_SIZE].getStatus() == Mass::status::PLAYER && b.mass_[0][0].getStatus() == Mass::status::PLAYER) ||
-		(b.mass_[Board::BOARD_SIZE][0].getStatus() == Mass::status::PLAYER && b.mass_[0][Board::BOARD_SIZE].getStatus() == Mass::status::PLAYER)) &&
-		 b.mass_[Board::BOARD_SIZE / 2][Board::BOARD_SIZE / 2].getStatus() == Mass::status::ENEMY)
+	//二回目置くときに両角取られてて真ん中を取っていれば辺を最優先にする
+	else if (*turnCount == 2 && (
+		(b.mass_[Board::BOARD_SIZE - 1][Board::BOARD_SIZE - 1].getStatus() == Mass::status::PLAYER && b.mass_[0][0].getStatus() == Mass::status::PLAYER) ||
+		(b.mass_[Board::BOARD_SIZE - 1][0].getStatus() == Mass::status::PLAYER && b.mass_[0][Board::BOARD_SIZE - 1].getStatus() == Mass::status::PLAYER)) &&
+		b.mass_[Board::BOARD_SIZE / 2][Board::BOARD_SIZE / 2].getStatus() == Mass::status::ENEMY)
 	{
-		b.mass_[1][0].put(Mass::status::ENEMY);
+		massScore[1][0] = 100;
 	}
-	//それ以外
-	else
+}
+
+bool AI_standard::think(Board& b)
+{
+	int turnCount = 1;
+
+	calcScore(&turnCount, b);
+	
+	//一番スコアが高いマスを選ぶ
+	int maxScore = 0;
+	int maxScorePosX = -1, maxScorePosY = -1;
+	for (int y = 0; y < Board::BOARD_SIZE; y++)
 	{
-		int maxScore = 0;
-		int maxScorePosX = -1, maxScorePosY = -1;
-		for (int y = 0; y < Board::BOARD_SIZE; y++)
+		for (int x = 0; x < Board::BOARD_SIZE; x++)
 		{
-			for (int x = 0; x < Board::BOARD_SIZE; x++)
+			if (massScore[y][x] > maxScore)
 			{
-				if (massScore[y][x] > maxScore)
-				{
-					maxScore = massScore[y][x];
-					maxScorePosX = x;
-					maxScorePosY = y;
-				}		
-			}
+				maxScore = massScore[y][x];
+				maxScorePosX = x;
+				maxScorePosY = y;
+			}		
 		}
 	}
 
+	if (maxScore != 0)
+	{
+		b.mass_[maxScorePosY][maxScorePosX].put(Mass::ENEMY);
+		return true;
+	}
 	return false;
 }
 
@@ -468,7 +556,7 @@ bool AI_montecarlo_tree::think(Board& b)
 class Game
 {
 private:
-	const AI::type ai_type = AI::TYPE_MONTECARLO_TREE;
+	const AI::type ai_type = AI::TYPE_STANDARD;
 
 	Board board_;
 	Board::WINNER winner_ = Board::NOT_FINISED;
