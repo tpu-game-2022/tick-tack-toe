@@ -34,6 +34,8 @@ public:
 public:
 	enum type {
 		TYPE_ORDERED = 0,
+		TYPE_STANDARD = 1,
+		TYPE_MONTECARLO_TREE = 2,
 	};
 
 	static AI* createAi(type type);
@@ -48,10 +50,39 @@ public:
 	bool think(Board& b);
 };
 
+//三目並べの後攻定石
+class AI_standard : public AI {
+public:
+	AI_standard() {}
+	~AI_standard() {}
+
+	bool think(Board& b);
+};
+
+//モンテカルロ木
+class AI_montecarlo_tree : public AI {
+private:
+	static int select_mass(int n, int* a_count, int* a_wins);
+	int evaluate(bool all_search, int count, Board& b, Mass::status current, int& best_x, int& best_y);
+public :
+	AI_montecarlo_tree(){}
+	~AI_montecarlo_tree(){}
+
+	bool think(Board& b);
+};
+
 AI* AI::createAi(type type)
 {
 	switch (type) {
-		// case TYPE_ORDERED:
+		case TYPE_ORDERED:
+			return new AI_ordered();
+			break;
+		case TYPE_STANDARD:
+			return new AI_standard();
+			break;
+		case TYPE_MONTECARLO_TREE:
+			return new AI_montecarlo_tree();
+			break;
 	default:
 		return new AI_ordered();
 		break;
@@ -63,6 +94,8 @@ AI* AI::createAi(type type)
 class Board
 {
 	friend class AI_ordered;
+	friend class AI_standard;
+	friend class AI_montecarlo_tree;
 
 public:
 	enum WINNER {
@@ -193,12 +226,249 @@ bool AI_ordered::think(Board& b)
 	return false;
 }
 
+bool AI_standard::think(Board& b)
+{
+	int turnCount = 1;
 
+	int massScore[3][3] = { {50, 30, 50},
+							{30, 70, 30},
+							{50, 30, 50} };
+
+	for (int y = 0; y < Board::BOARD_SIZE; y++)
+	{
+		int putCountPlayerX = 0;
+		int emptyPosX = -1;
+		for (int x = 0; x < Board::BOARD_SIZE; x++)
+		{		
+			if (b.mass_[y][x].getStatus() == Mass::status::ENEMY)
+			{
+				turnCount++;
+				massScore[y][x] = -1;
+				putCountPlayerX = -100;
+			}
+			else if (b.mass_[y][x].getStatus() == Mass::status::PLAYER)
+			{
+				massScore[y][x] = -1;
+				putCountPlayerX++;
+			}
+			else
+			{
+				emptyPosX = x;
+			}
+		}
+
+		if (putCountPlayerX == 2)
+		{
+			massScore[y][emptyPosX] = 100;
+		}
+	}
+
+	for (int x = 0; x < Board::BOARD_SIZE; x++)
+	{
+		int putCountPlayerY = 0;
+		int emptyPosY = -1;
+		for (int y = 0; y < Board::BOARD_SIZE; y++)
+		{
+			if (b.mass_[y][x].getStatus() == Mass::status::ENEMY)
+			{
+				massScore[y][x] = -1;
+				putCountPlayerY = -100;
+			}
+			else if (b.mass_[y][x].getStatus() == Mass::status::PLAYER)
+			{
+				massScore[y][x] = -1;
+				putCountPlayerY++;
+			}
+			else
+			{
+				emptyPosY = y;
+			}
+		}
+
+		if (putCountPlayerY == 2)
+		{
+			massScore[emptyPosY][x] = 100;
+		}
+	}
+
+	//後攻初手の定石
+	if (turnCount == 1)
+	{
+		//真ん中におかれたとき角に置く
+		if (b.mass_[Board::BOARD_SIZE / 2][Board::BOARD_SIZE / 2].getStatus() == Mass::status::PLAYER)
+		{
+			b.mass_[0][0].put(Mass::ENEMY);
+		}
+		//角や辺におかれたとき真ん中に置く
+		else 
+		{
+			b.mass_[Board::BOARD_SIZE / 2][Board::BOARD_SIZE / 2].put(Mass::ENEMY);
+		}
+	}
+	//二回目置くときに両角取られてて真ん中を取っていれば辺をとる
+	else if (turnCount == 2 && (
+		(b.mass_[Board::BOARD_SIZE][Board::BOARD_SIZE].getStatus() == Mass::status::PLAYER && b.mass_[0][0].getStatus() == Mass::status::PLAYER) ||
+		(b.mass_[Board::BOARD_SIZE][0].getStatus() == Mass::status::PLAYER && b.mass_[0][Board::BOARD_SIZE].getStatus() == Mass::status::PLAYER)) &&
+		 b.mass_[Board::BOARD_SIZE / 2][Board::BOARD_SIZE / 2].getStatus() == Mass::status::ENEMY)
+	{
+		b.mass_[1][0].put(Mass::status::ENEMY);
+	}
+	//それ以外
+	else
+	{
+		int maxScore = 0;
+		int maxScorePosX = -1, maxScorePosY = -1;
+		for (int y = 0; y < Board::BOARD_SIZE; y++)
+		{
+			for (int x = 0; x < Board::BOARD_SIZE; x++)
+			{
+				if (massScore[y][x] > maxScore)
+				{
+					maxScore = massScore[y][x];
+					maxScorePosX = x;
+					maxScorePosY = y;
+				}		
+			}
+		}
+	}
+
+	return false;
+}
+
+int AI_montecarlo_tree::evaluate(bool all_search, int sim_count, Board& b, Mass::status current, int& best_x, int& best_y)
+{
+	Mass::status next = (current == Mass::ENEMY) ? Mass::PLAYER : Mass::ENEMY;
+
+	int r = b.calc_result();
+	if (r == current) return +100;
+	if (r == next)return -100;
+	if (r == Board::DRAW)return 0;
+
+	char x_table[Board::BOARD_SIZE * Board::BOARD_SIZE];
+	char y_table[Board::BOARD_SIZE * Board::BOARD_SIZE];
+	int wins[Board::BOARD_SIZE * Board::BOARD_SIZE];
+	int count[Board::BOARD_SIZE * Board::BOARD_SIZE];
+	int scores[Board::BOARD_SIZE * Board::BOARD_SIZE];
+	int blank_mass_num = 0;
+
+	for (int y = 0; y < Board::BOARD_SIZE; y++)
+	{
+		for (int x = 0; x < Board::BOARD_SIZE; x++)
+		{
+			Mass& m = b.mass_[y][x];
+			if (m.getStatus() == Mass::BLANK)
+			{
+				x_table[blank_mass_num] = x;
+				y_table[blank_mass_num] = y;
+				wins[blank_mass_num] = count[blank_mass_num] = 0;
+				scores[blank_mass_num] = -1;
+				blank_mass_num++;
+			}
+		}
+	}
+
+	if (all_search) 
+	{
+		for (int i = 0; i < sim_count; i++)
+		{
+			int idx = select_mass(blank_mass_num, count, wins);
+			if (idx < 0) break;
+			Mass& m = b.mass_[y_table[idx]][x_table[idx]];
+
+			m.setStatus(current);
+			int dummy;
+			int score = -evaluate(false, 0, b, next, dummy, dummy);
+			m.setStatus(Mass::BLANK);
+
+			if (0 < score)
+			{
+				wins[idx]++;
+				count[idx]++;
+			}
+			else
+			{
+				count[idx]++;
+			}
+
+			if (sim_count / 10 < count[idx] && 10 < sim_count)
+			{
+				m.setStatus(current);
+				scores[idx] = 100 - evaluate(true, (int)sqrt(sim_count), b, next, dummy, dummy);
+				m.setStatus(Mass::BLANK);
+				wins[idx] = -1;
+			}
+		}
+
+		int score_max = -9999;
+		for (int idx = 0; idx < blank_mass_num; idx++)
+		{
+			int score;
+			if (-1 == wins[idx])
+			{
+				score = scores[idx];
+			}
+			else if (0 == count[idx])
+			{
+				score = 0;
+			}
+			else
+			{
+				double c = 1 * sqrt(2 * log(sim_count) / count[idx]);
+				score = 100 * wins[idx] / count[idx] + (int)(c);
+			}
+
+			if (score_max < score)
+			{
+				score_max = score;
+				best_x = x_table[idx];
+				best_y = y_table[idx];
+			}
+			std::cout << x_table[idx] + 1 << (char)('a' + y_table[idx]) << " " << score << "win:"<< std::endl;
+		}
+		return score_max;
+	}
+
+	int idx = rand() % blank_mass_num;
+	Mass& m = b.mass_[y_table[idx]][x_table[idx]];
+	m.setStatus(current);
+	int dummy;
+	int score = -evaluate(false, 0, b, next, dummy, dummy);
+	m.setStatus(Mass::BLANK);
+
+	return score;
+}
+
+int AI_montecarlo_tree::select_mass(int n, int* a_count, int* a_wins)
+{
+	int total = 0;
+	for (int i = 0; i < n; i++)
+	{
+		total += 10000 * (a_wins[i] + 1) / (a_count[i] + 1);
+	}
+	if (total <= 0)return -1;
+
+	int r = rand() % total;
+	for (int i = 0; i < n; i++)
+	{
+		r -= 10000 * (a_wins[i] + 1) / (a_count[i] + 1);
+		if (r < 0) return i;
+	}
+	return -1;
+}
+bool AI_montecarlo_tree::think(Board& b)
+{
+	int best_x = -1, best_y;
+	evaluate(true, 10000, b, Mass::ENEMY, best_x, best_y);
+
+	if (best_x < 0)return false;
+
+	return b.mass_[best_y][best_x].put(Mass::ENEMY);
+}
 
 class Game
 {
 private:
-	const AI::type ai_type = AI::TYPE_ORDERED;
+	const AI::type ai_type = AI::TYPE_MONTECARLO_TREE;
 
 	Board board_;
 	Board::WINNER winner_ = Board::NOT_FINISED;
@@ -233,9 +503,6 @@ public:
 		board_.show();
 	}
 };
-
-
-
 
 void show_start_message()
 {
