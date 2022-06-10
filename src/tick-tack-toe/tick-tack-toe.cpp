@@ -70,22 +70,22 @@ public:
 	bool think(Board &b);
 };
 
-//class AI_nega_scout : public AI {
-//private: 
-//	int evaluate(int limit, int alpha, int beta, Board& b, Mass::status current, int& best_x, int& best_y);
-//public:
-//	AI_nega_scout(){}
-//	~AI_nega_scout(){}
-//
-//	bool think(Board& b);
-//};
+class AI_nega_scout : public AI {
+private: 
+	int evaluate(int limit, int alpha, int beta, Board& b, Mass::status current, int& best_x, int& best_y);
+public:
+	AI_nega_scout(){}
+	~AI_nega_scout(){}
+
+	bool think(Board& b);
+};
 
 
 class Board
 {
 	friend class AI_ordered;
 	friend class AI_monte_carlo;
-	//friend class AI_nega_scout;
+	friend class AI_nega_scout;
 
 
 public:
@@ -300,55 +300,55 @@ bool AI_monte_carlo::think(Board& b)
 }
 
 
-//int AI_nega_scout::evaluate(int limit, int alpha, int beta, Board& board, Mass::status current, int& best_x, int& best_y)
-//{
-//	if (limit-- == 0) return 0;// 深さ制限に達した
-//
-//	Mass::status next = (current == Mass::ENEMY) ? Mass::PLAYER : Mass::ENEMY;
-//	// 死活判定
-//	int r = board.calc_result();
-//	if (r == current) return +10000; // 呼び出し側の勝ち
-//	if (r == next) return -10000;// 呼び出し側の負け
-//	if (r == Board::DRAW) return 0;// 引き分け
-//
-//	int a = alpha, b = beta;
-//
-//	for (int y = 0; y < Board::BOARD_SIZE; y++) {
-//		for (int x = 0; x < Board::BOARD_SIZE; x++) {
-//			Mass& m = board.mass_[y][x];
-//			if (m.getStatus() == Mass::BLANK) continue;
-//
-//			m.setStatus(current);
-//			int dummy;
-//			int score = -evaluate(limit, -b, -a, board, next, dummy, dummy);
-//			if (a < score && score < beta && !(x == 0 && y == 0) && limit <= 2)
-//			{
-//				a = -evaluate(limit, -beta, -score, board, next, dummy, dummy);
-//			}
-//			m.setStatus(Mass::BLANK);// 手を戻す
-//
-//			if (a < score) {
-//				a = score;
-//				best_x = x;
-//				best_y = y;
-//			}
-//			if (beta <= a) {
-//				return a;
-//			}
-//			b = a + 1;
-//		}
-//	}
-//	return a;
-//}
+int AI_nega_scout::evaluate(int limit, int alpha, int beta, Board& board, Mass::status current, int& best_x, int& best_y)
+{
+	if (limit-- == 0) return 0;// 深さ制限に達した
 
-//bool AI_nega_scout::think(Board& b)
-//{
-//	int best_x, best_y;
-//	if (evaluate(5, -10000, 10000, b, Mass::ENEMY, best_x, best_y) <= -9999)
-//		return false;
-//
-//	return b.mass_[best_y][best_x].put(Mass::ENEMY);
-//}
+	Mass::status next = (current == Mass::ENEMY) ? Mass::PLAYER : Mass::ENEMY;
+	// 死活判定
+	int r = board.calc_result();
+	if (r == current) return +10000; // 呼び出し側の勝ち
+	if (r == next) return -10000;// 呼び出し側の負け
+	if (r == Board::DRAW) return 0;// 引き分け
+
+	int a = alpha, b = beta;
+
+	for (int y = 0; y < Board::BOARD_SIZE; y++) {
+		for (int x = 0; x < Board::BOARD_SIZE; x++) {
+			Mass& m = board.mass_[y][x];
+			if (m.getStatus() == Mass::BLANK) continue;
+
+			m.setStatus(current);
+			int dummy;
+			int score = -evaluate(limit, -b, -a, board, next, dummy, dummy);
+			if (a < score && score < beta && !(x == 0 && y == 0) && limit <= 2)
+			{
+				a = -evaluate(limit, -beta, -score, board, next, dummy, dummy);
+			}
+			m.setStatus(Mass::BLANK);// 手を戻す
+
+			if (a < score) {
+				a = score;
+				best_x = x;
+				best_y = y;
+			}
+			if (beta <= a) {
+				return a;
+			}
+			b = a + 1;
+		}
+	}
+	return a;
+}
+
+bool AI_nega_scout::think(Board& b)
+{
+	int best_x, best_y;
+	if (evaluate(5, -10000, 10000, b, Mass::ENEMY, best_x, best_y) <= -9999)
+		return false;
+
+	return b.mass_[best_y][best_x].put(Mass::ENEMY);
+}
 
 class Game
 {
