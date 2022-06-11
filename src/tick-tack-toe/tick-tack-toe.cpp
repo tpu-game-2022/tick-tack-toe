@@ -33,7 +33,7 @@ public:
 public:
 	enum type {
 		TYPE_ORDERED = 0,
-		TYPE_NEGASCOUT=1,
+		TYPE_ALPHABETA=1,
 	};
 
 	static AI* createAi(type type);
@@ -63,7 +63,7 @@ AI* AI::createAi(type type)
 		case TYPE_ORDERED:
 			return new AI_ordered();
 			break;
-		case TYPE_NEGASCOUT:
+		case TYPE_ALPHABETA:
 			return new AI_alpha_beta();
 			break;
 	default:
@@ -223,7 +223,7 @@ bool AI_ordered::think(Board& b)
 class Game
 {
 private:
-	const AI::type ai_type = AI::TYPE_NEGASCOUT;
+	const AI::type ai_type = AI::TYPE_ALPHABETA;
 
 	Board board_;
 	Board::WINNER winner_ = Board::NOT_FINISED;
