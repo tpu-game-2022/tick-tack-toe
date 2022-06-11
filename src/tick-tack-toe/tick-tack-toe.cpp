@@ -23,7 +23,6 @@ public:
 };
 
 class Board;
-
 class AI {
 public:
 	AI() {}
@@ -34,6 +33,7 @@ public:
 public:
 	enum type {
 		TYPE_ORDERED = 0,
+		TYPE_NEGASCOUT=1,
 	};
 
 	static AI* createAi(type type);
@@ -47,24 +47,45 @@ public:
 
 	bool think(Board& b);
 };
+class AI_alpha_beta : public AI {
+private:
+	int evaluate(int alpha, int beta, Board& b, Mass::status current, int& best_x, int& best_y);
+public:
+	AI_alpha_beta() {}
+	~AI_alpha_beta() {}
+
+	bool think(Board& b);
+};
 
 AI* AI::createAi(type type)
 {
 	switch (type) {
-		// case TYPE_ORDERED:
+		case TYPE_ORDERED:
+			return new AI_ordered();
+			break;
+		case TYPE_NEGASCOUT:
+			return new AI_alpha_beta();
+			break;
 	default:
 		return new AI_ordered();
+		
 		break;
 	}
 
 	return nullptr;
 }
 
+
+
 class Board
 {
 	friend class AI_ordered;
+	friend class AI_alpha_beta;
 
 public:
+
+	
+
 	enum WINNER {
 		NOT_FINISED = 0,
 		PLAYER,
@@ -78,6 +99,8 @@ private:
 	Mass mass_[BOARD_SIZE][BOARD_SIZE];
 
 public:
+
+
 	Board() {
 		//		mass_[0][0].setStatus(Mass::ENEMY); mass_[0][1].setStatus(Mass::PLAYER); 
 	}
@@ -140,6 +163,8 @@ public:
 			y < 0 || BOARD_SIZE <= y) return false;// 盤面外
 		return mass_[y][x].put(Mass::PLAYER);
 	}
+	
+	
 
 	void show() const {
 		std::cout << "　　";
@@ -198,7 +223,7 @@ bool AI_ordered::think(Board& b)
 class Game
 {
 private:
-	const AI::type ai_type = AI::TYPE_ORDERED;
+	const AI::type ai_type = AI::TYPE_NEGASCOUT;
 
 	Board board_;
 	Board::WINNER winner_ = Board::NOT_FINISED;
@@ -302,3 +327,55 @@ int main()
 
 	return 0;
 }
+
+int AI_alpha_beta::evaluate(int alpha, int beta, Board& board, Mass::status current, int& best_x, int& best_y)
+{
+
+	Mass::status next = (current == Mass::ENEMY) ? Mass::PLAYER : Mass::ENEMY;
+
+	int r = board.calc_result();
+	if (r == current)return+10000;
+	if (r == next)return -10000;
+	if (r == Board::DRAW)return 0;
+
+	int score_max=-9999;
+
+	for (int y = 0; y < Board::BOARD_SIZE; y++)
+	{
+		for (int x = 0; x < Board::BOARD_SIZE; x++)
+		{
+			Mass& m = board.mass_[y][x];
+			if (m.getStatus() != Mass::BLANK)continue;
+
+			m.setStatus(current);
+			int dummy;
+			int score = -evaluate(-beta,-alpha, board, next, dummy, dummy);
+			m.setStatus(Mass::BLANK);
+
+			if (beta<score)
+			{
+				return (score_max < score) ? score : score_max;
+			}
+			
+			if (score_max<score) {
+
+				score_max = score;
+				alpha = (alpha < score_max) ? score_max : alpha;
+				best_x = x;
+				best_y = y;
+			}
+		}
+	}
+	return score_max;
+}
+
+bool AI_alpha_beta::think(Board &b)
+{
+	int best_x, best_y;
+
+	if (evaluate(-10000, 10000, b, Mass::ENEMY, best_x, best_y) <= -9999)
+		return false;
+
+	return b.mass_[best_y][best_x].put(Mass::ENEMY);
+}
+
