@@ -16,9 +16,17 @@
 * 可能であれば、速度等を計測して、具体的な効率化度合い、強さを示してください。
 * 納得できるところまでできたところでプルリクを出してください。
 
-[![MSBuild](https://github.com/tpu-game-2022/tick-tack-toe/actions/workflows/msbuild.yml/badge.svg)](https://github.com/tpu-game-2022/tick-tack-toe/actions/workflows/msbuild.yml)
+[![MSBuild](https://github.com/shuhei-M/tick-tack-toe/actions/workflows/msbuild.yml/badge.svg)](https://github.com/shuhei-M/tick-tack-toe/actions/workflows/msbuild.yml)
 
 （↑のソースコードの「tpu-game-2021」を自分のアカウント名に差し替えてください（２か所））
 
 # 〆切
 */*(日)
+
+# 追加・変更・工夫した点
+* min-max戦略, nega-max戦略, alpha-beta法, Nega-Scout法, モンテカルロ法のAIをそれぞれ実装しました。
+* モンテカルロ木探索に関しては、スライドを参考にコーディングしたものの、うまく実装できませんでした。
+　モンテカルロ法より弱くなってしまったため、提出したコードのAIにはモンテカルロ法をセットしてあります。
+* MassクラスとBordクラスをBord.hに、AIクラス群をAI.hとAI.cppに、GameクラスをGame.hに分けて実装しました。
+* AIの性能の差をに比べるため、AIを差し替えやすいようにしました。
+　int型の整数をstaticキャストしてAI::type型の変数ai_typeにセットしています。数字を変えるだけでAIを差し替えられようになっています。
