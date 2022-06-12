@@ -16,9 +16,12 @@
 * 可能であれば、速度等を計測して、具体的な効率化度合い、強さを示してください。
 * 納得できるところまでできたところでプルリクを出してください。
 
-[![MSBuild](https://github.com/tpu-game-2022/tick-tack-toe/actions/workflows/msbuild.yml/badge.svg)](https://github.com/tpu-game-2022/tick-tack-toe/actions/workflows/msbuild.yml)
+[![MSBuild](https://github.com/noguaya/tick-tack-toe/actions/workflows/msbuild.yml/badge.svg)](https://github.com/noguaya/tick-tack-toe/actions/workflows/msbuild.yml)
 
 （↑のソースコードの「tpu-game-2021」を自分のアカウント名に差し替えてください（２か所））
 
 # 〆切
 */*(日)
+
+#工夫した点
+・alpha_beta法を実装しました
