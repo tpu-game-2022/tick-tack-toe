@@ -33,8 +33,14 @@ public:
 
 public:
 	enum type {
-		TYPE_ORDERED = 0,
+		TYPE_MONTECARLO = 0,
 	};
+
+
+//public:
+//	enum type {
+//		TYPE_ORDERED = 0,
+//	};
 
 	static AI* createAi(type type);
 };
@@ -48,37 +54,38 @@ public:
 	bool think(Board& b);
 };
 
+class AI_monte_carlo : public AI {
+private:
+	int evaluate(bool fiest_time, Board& b, Mass::status current, int& best_x, int& best_y);
+public:
+	AI_monte_carlo() {}
+	~AI_monte_carlo() {}
+
+	bool think(Board& b);
+};
+
+class AI_nega_scout : public AI {
+private:
+	int evaluate(int limit, int alpha, int beta, Board& b, Mass::status current, int& best_x, int& best_y);
+public:
+	AI_nega_scout() {}
+	~AI_nega_scout() {}
+
+	bool think(Board& b);
+};
+
+
 AI* AI::createAi(type type)
 {
 	switch (type) {
-		// case TYPE_ORDERED:
+		 case TYPE_MONTECARLO:
 	default:
-		return new AI_ordered();
+		return new AI_monte_carlo();
 		break;
 	}
 
 	return nullptr;
 }
-
-class AI_monte_carlo : public AI {
-private:
-	int evaluate(bool fiest_time, Board &b, Mass::status current, int& best_x, int& best_y);
-public:
-	AI_monte_carlo(){}
-	~AI_monte_carlo(){}
-
-	bool think(Board &b);
-};
-
-class AI_nega_scout : public AI {
-private: 
-	int evaluate(int limit, int alpha, int beta, Board& b, Mass::status current, int& best_x, int& best_y);
-public:
-	AI_nega_scout(){}
-	~AI_nega_scout(){}
-
-	bool think(Board& b);
-};
 
 
 class Board
@@ -353,7 +360,7 @@ bool AI_nega_scout::think(Board& b)
 class Game
 {
 private:
-	const AI::type ai_type = AI::TYPE_ORDERED;
+	const AI::type ai_type = AI::TYPE_MONTECARLO;
 
 	Board board_;
 	Board::WINNER winner_ = Board::NOT_FINISED;
