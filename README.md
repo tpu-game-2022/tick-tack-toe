@@ -16,9 +16,14 @@
 * 可能であれば、速度等を計測して、具体的な効率化度合い、強さを示してください。
 * 納得できるところまでできたところでプルリクを出してください。
 
-[![MSBuild](https://github.com/tpu-game-2022/tick-tack-toe/actions/workflows/msbuild.yml/badge.svg)](https://github.com/tpu-game-2022/tick-tack-toe/actions/workflows/msbuild.yml)
+[![MSBuild](https://github.com/kanade1004/tick-tack-toe/actions/workflows/msbuild.yml/badge.svg)](https://github.com/kanade1004/tick-tack-toe/actions/workflows/msbuild.yml)
 
-（↑のソースコードの「tpu-game-2021」を自分のアカウント名に差し替えてください（２か所））
+（↑のソースコードの「tpu-game-2022」を自分のアカウント名に差し替えてください（２か所））
+
+#実施した工夫
+*nega_max,alpha_beta,monte_carloの3つを新しく実装しました。
+*ゲーム開始前にAIのタイプを数字で変更できるようにしました。
+→これにより、再起動をせずともすべてのAIを確かめられるようになりました。(デバッグ作業を簡易化)
 
 # 〆切
 */*(日)
